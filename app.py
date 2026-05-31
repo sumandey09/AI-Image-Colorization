@@ -18,14 +18,22 @@ def load_ai_model():
         "colorization_model.h5",
         compile=False
     )
+@st.cache_resource
+def load_torn_model():
+    return load_model(
+        "torn_restoration_model.h5",
+        compile=False
+    )
 
+torn_model = load_torn_model()
 model = load_ai_model()
 
 feature = st.sidebar.selectbox(
     "Choose Feature",
     [
         "Image Colorization",
-        "Video Colorization"
+        "Video Colorization",
+        "Torn Image Restoration"
     ]
 )
 
@@ -263,3 +271,68 @@ if feature == "Video Colorization":
                 file_name="colorized_video.mp4",
                 mime="video/mp4"
             )
+            # ==========================
+# TORN IMAGE RESTORATION
+# ==========================
+
+if feature == "Torn Image Restoration":
+
+    st.subheader("🧩 Torn Image Restoration")
+
+    uploaded_file = st.file_uploader(
+        "Upload Torn Image",
+        type=["jpg", "jpeg", "png"]
+    )
+
+    if uploaded_file is not None:
+
+        image = Image.open(
+            uploaded_file
+        ).convert("RGB")
+
+        image_np = np.array(image)
+
+        resized = cv2.resize(
+            image_np,
+            (128,128)
+        )
+
+        normalized = resized.astype(
+            "float32"
+        ) / 255.0
+
+        prediction = torn_model.predict(
+            np.expand_dims(
+                normalized,
+                axis=0
+            ),
+            verbose=0
+        )
+
+        output = prediction[0]
+
+        output = np.clip(
+            output,
+            0,
+            1
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.subheader("Input Torn Image")
+            st.image(
+                image_np,
+                use_container_width=True
+            )
+
+        with col2:
+            st.subheader("Restored Output")
+            st.image(
+                output,
+                use_container_width=True
+            )
+
+        st.success(
+            "Restoration Completed!"
+        )
